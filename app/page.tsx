@@ -74,52 +74,58 @@ export default function Home() {
     reader.readAsBinaryString(file)
   }
 
-  const handleSubmit = () => {
-    const dataToValidate = employees.map((emp) => ({
+ const handleSubmit = () => {
+  const dataToValidate = employees.map((emp) => {
+    const salaireStr = emp.current.salaire.replace(/[^0-9]+/g, '')
+    const salaireInt = parseInt(salaireStr, 10)
+    return {
       nom: emp.current.nom,
       email: emp.current.email,
       poste: emp.current.poste,
-      salaire: Number(emp.current.salaire.replace(/[^0-9.-]+/g, '')),
-    }))
+      salaire: isNaN(salaireInt) ? 0 : salaireInt,
+    }
+  })
 
-    const validation = fileImportSchema.safeParse({
-      fileName,
-      employees: dataToValidate,
-    })
+  const validation = fileImportSchema.safeParse({
+    fileName,
+    importedAt: new Date().toISOString(),
+    employees: dataToValidate,
+  })
 
-    if (!validation.success) {
-      const fieldErrors = validation.error.flatten().fieldErrors.employees
+  if (!validation.success) {
+    const fieldErrors = validation.error.flatten().fieldErrors.employees
 
-      if (fieldErrors) {
-        setEmployees((prev) =>
-          prev.map((emp, idx) => {
-            const empErrors = fieldErrors[idx] as ZodFieldErrors | undefined
+    if (fieldErrors) {
+      setEmployees((prev) =>
+        prev.map((emp, idx) => {
+          const empErrors = fieldErrors[idx] as ZodFieldErrors | undefined
 
-            return {
-              ...emp,
-              errors: {
-                nom: empErrors?.nom?.[0] ?? '',
-                email: empErrors?.email?.[0] ?? '',
-                poste: empErrors?.poste?.[0] ?? '',
-                salaire: empErrors?.salaire?.[0] ?? '',
-              },
-            }
-          })
-        )
-      }
-
-      toast.error('Merci de corriger les erreurs dans le fichier Excel.')
-      return
+          return {
+            ...emp,
+            errors: {
+              nom: empErrors?.nom?.[0] ?? '',
+              email: empErrors?.email?.[0] ?? '',
+              poste: empErrors?.poste?.[0] ?? '',
+              salaire: empErrors?.salaire?.[0] ?? '',
+            },
+          }
+        })
+      )
     }
 
-    mutation.mutate(validation.data, {
-      onSuccess: () => {
-        toast.success('Importation sauvegardée avec succès 🎉')
-        setEmployees([])
-        setFileName('')
-      },
-    })
+    toast.error('Merci de corriger les erreurs dans le fichier Excel.')
+    return
   }
+
+  mutation.mutate(validation.data, {
+    onSuccess: () => {
+      
+      setEmployees([])
+      setFileName('')
+    },
+  })
+}
+
   const handleForget = () => {
     setEmployees([])
     setFileName('')

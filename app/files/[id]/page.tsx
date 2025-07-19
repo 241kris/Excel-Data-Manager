@@ -28,9 +28,9 @@ export default function Page() {
   const updateMutation = useUpdateFileImport(numericId);
 
   const {
-    
+
     handleSubmit,
-  
+
     control,
     reset,
     getValues,
@@ -106,7 +106,7 @@ export default function Page() {
       await updateMutation.mutateAsync(formattedData);
       toast.success('Fichier mis à jour avec succès !');
       router.push('/files');
-    } catch  {
+    } catch {
       toast.error('Erreur lors de la mise à jour');
     }
   };
@@ -257,7 +257,10 @@ export default function Page() {
                   <label className="text-gray-200 mb-1">{attr}</label>
                   <input
                     type={attr === 'salaire' ? 'number' : 'text'}
-                    {...registerEmployee(attr as keyof Employee)}
+                    {...registerEmployee(attr as keyof Employee, {
+                      valueAsNumber: attr === 'salaire',
+                      setValueAs: (v) => (attr === 'salaire' && isNaN(v) ? undefined : v),
+                    })}
                     className="input input-sm w-full rounded-3xl"
                   />
                   {employeeErrors?.[attr]?.message && (
@@ -267,6 +270,7 @@ export default function Page() {
                   )}
                 </div>
               ))}
+
 
               <div className="modal-action justify-between mt-6">
                 <button
