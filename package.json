@@ -1,0 +1,13 @@
+{
+  "name": "Excel-Data-Manager",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "https://github.com/241kris/Excel-Data-Manager.git",
+  "author": "241Kris <styvenekris@gmail.com>",
+  "license": "MIT",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  }
+}

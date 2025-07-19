@@ -184,7 +184,7 @@ export default function Page() {
                   <td>
                     <button
                       type="button"
-                      className="btn btn-xs btn-warning mr-2"
+                      className="btn btn-xs btn-warning mr-2 mb-2"
                       onClick={() => openModalForEdit(index)}
                     >
                       <RxUpdate />
@@ -246,7 +246,7 @@ export default function Page() {
 
       {isModalOpen && (
         <div className="modal modal-open">
-          <div className="modal-box max-w-1/4">
+          <div className="modal-box md:max-w-1/4 w-full">
             <h3 className="font-semibold text-lg text-center mb-4">
               {editingIndex === null ? 'Nouvel employé' : 'Modifier employé'}
             </h3>

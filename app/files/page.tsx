@@ -142,26 +142,28 @@ export default function DataTable() {
                   <td>{fileImport.employees.length}</td>
                   <td>{new Date(fileImport.importedAt).toLocaleDateString()}</td>
                   <td>
-                    {/* ✅ Bouton de téléchargement avec loading par ID */}
-                    <button
-                      className='btn btn-warning btn-xs rounded-2xl'
-                      onClick={() => downloadExcel(fileImport.id!, fileImport.fileName)}
-                      disabled={downloadingId === fileImport.id}
-                    >
-                      {downloadingId === fileImport.id ? (
-                        <span className="loading loading-spinner loading-xs" />
-                      ) : (
-                        <FaFileDownload className="text-sm" />
-                      )}
-                    </button>
+                    <div className='flex gap-2 items-center md:flex-row flex-col justify-center'>
+                      {/* ✅ Bouton de téléchargement avec loading par ID */}
+                      <button
+                        className='btn btn-warning btn-xs rounded-2xl'
+                        onClick={() => downloadExcel(fileImport.id!, fileImport.fileName)}
+                        disabled={downloadingId === fileImport.id}
+                      >
+                        {downloadingId === fileImport.id ? (
+                          <span className="loading loading-spinner loading-xs" />
+                        ) : (
+                          <FaFileDownload className="text-sm" />
+                        )}
+                      </button>
 
-                    {/* ✅ Bouton de suppression */}
-                    <button
-                      onClick={() => openConfirmationModal(fileImport.id!, fileImport.fileName)}
-                      className='btn ms-2 btn-error btn-xs rounded-2xl'
-                    >
-                      <MdDelete className='text-sm' />
-                    </button>
+                      {/* ✅ Bouton de suppression */}
+                      <button
+                        onClick={() => openConfirmationModal(fileImport.id!, fileImport.fileName)}
+                        className='btn ms-2 btn-error btn-xs rounded-2xl'
+                      >
+                        <MdDelete className='text-sm' />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
