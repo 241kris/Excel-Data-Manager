@@ -1,103 +1,204 @@
-import Image from "next/image";
+'use client'
+
+import React, { useRef, useState } from 'react'
+import { FaFileExcel } from 'react-icons/fa'
+import UploadExcelButton, { UploadExcelButtonHandle } from './components/UploadExcelButton'
+import * as XLSX from 'xlsx'
+import { z } from 'zod'
+import { fileImportSchema, employeeSchema } from '@/schemas'
+import { useSaveFileImport } from '@/hooks/useSaveFileImport'
+import toast from 'react-hot-toast'
+import Breadcrumbs from './components/Breadcrumbs'
+
+
+type RawEmployee = {
+  nom: string
+  email: string
+  poste: string
+  salaire: string
+}
+
+type EmployeeField = keyof z.infer<typeof employeeSchema>
+type ZodFieldErrors = Partial<Record<EmployeeField, string[]>>
+
+type EmployeeWithErrors = {
+  current: RawEmployee
+  original: RawEmployee
+  errors: Partial<Record<EmployeeField, string>>
+}
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [employees, setEmployees] = useState<EmployeeWithErrors[]>([])
+  const [fileName, setFileName] = useState<string>('')
+  const mutation = useSaveFileImport()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const uploadButtonRef = useRef<UploadExcelButtonHandle>(null)
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const handleUpload = (file: File) => {
+    setFileName(file.name)
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const data = e.target?.result
+      if (!data) return
+
+      const workbook = XLSX.read(data, { type: 'binary' })
+      const sheetName = workbook.SheetNames[0]
+      const worksheet = workbook.Sheets[sheetName]
+
+      const jsonData = XLSX.utils.sheet_to_json<RawEmployee>(worksheet, { defval: '' })
+
+      const loaded: EmployeeWithErrors[] = jsonData.map((row) => ({
+        current: {
+          nom: row.nom || '',
+          email: row.email || '',
+          poste: row.poste || '',
+          salaire: row.salaire || '',
+        },
+        original: {
+          nom: row.nom || '',
+          email: row.email || '',
+          poste: row.poste || '',
+          salaire: row.salaire || '',
+        },
+        errors: {},
+      }))
+
+      setEmployees(loaded)
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+
+    reader.readAsBinaryString(file)
+  }
+
+  const handleSubmit = () => {
+    const dataToValidate = employees.map((emp) => ({
+      nom: emp.current.nom,
+      email: emp.current.email,
+      poste: emp.current.poste,
+      salaire: Number(emp.current.salaire.replace(/[^0-9.-]+/g, '')),
+    }))
+
+    const validation = fileImportSchema.safeParse({
+      fileName,
+      employees: dataToValidate,
+    })
+
+    if (!validation.success) {
+      const fieldErrors = validation.error.flatten().fieldErrors.employees
+
+      if (fieldErrors) {
+        setEmployees((prev) =>
+          prev.map((emp, idx) => {
+            const empErrors = fieldErrors[idx] as ZodFieldErrors | undefined
+
+            return {
+              ...emp,
+              errors: {
+                nom: empErrors?.nom?.[0] ?? '',
+                email: empErrors?.email?.[0] ?? '',
+                poste: empErrors?.poste?.[0] ?? '',
+                salaire: empErrors?.salaire?.[0] ?? '',
+              },
+            }
+          })
+        )
+      }
+
+      toast.error('Merci de corriger les erreurs dans le fichier Excel.')
+      return
+    }
+
+    mutation.mutate(validation.data, {
+      onSuccess: () => {
+        toast.success('Importation sauvegardée avec succès 🎉')
+        setEmployees([])
+        setFileName('')
+      },
+    })
+  }
+  const handleForget = () => {
+    setEmployees([])
+    setFileName('')
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+    uploadButtonRef.current?.reset?.() // si tu as défini une méthode reset dans UploadExcelButton
+    toast.success('Import réinitialisé.')
+  }
+
+  return (
+
+
+    <main className="flex flex-col items-center justify-center h-screen px-4">
+      <div>
+        <Breadcrumbs />
+      </div>
+      <div>
+        <h1 className="stat-value text-2xl mb-5 flex items-center gap-3">
+          Importer votre fichier .xlsx <FaFileExcel className="text-white" />
+        </h1>
+        <UploadExcelButton
+          onFileSelectAction={handleUpload}
+          ref={uploadButtonRef}
+        />
+      </div>
+
+      {employees.length > 0 && (
+
+        <div className="overflow-x-auto mt-14 w-full max-w-5xl">
+
+          <h1 className="stat-desc text-base">
+            {employees.length} élément(s) -  <span className='text-green-600 font-semibold'>{fileName}</span>
+          </h1>
+
+          <div className="flex items-center gap-2 mt-2">
+            <button
+              disabled={mutation.status === 'pending'}
+              onClick={handleSubmit}
+              className="btn btn-soft btn-primary rounded-3xl btn-sm flex items-center gap-2"
+            >
+              {mutation.status === 'pending' && (
+                <span className="loading loading-spinner loading-sm" />
+              )}
+              sauvegarder
+            </button>
+            <button
+              className="btn btn-error rounded-3xl btn-sm btn-soft"
+              onClick={handleForget}
+            >
+              oublier
+            </button>
+
+          </div>
+
+          {/*table affichant les données du fichier*/}
+          <table className="table w-full text-xs">
+            <thead>
+              <tr>
+                <th>nom</th>
+                <th>email</th>
+                <th>poste</th>
+                <th>salaire</th>
+              </tr>
+            </thead>
+            <tbody>
+              {employees.map((emp, i) => (
+                <tr key={i}>
+                  <td className={emp.errors.nom ? 'text-error' : ''}>{emp.current.nom}</td>
+                  <td className={emp.errors.email ? 'text-error' : ''}>{emp.current.email}</td>
+                  <td className={emp.errors.poste ? 'text-error' : ''}>{emp.current.poste}</td>
+                  <td className={emp.errors.salaire ? 'text-error' : ''}>{emp.current.salaire}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+      )}
+    </main>
+  )
 }

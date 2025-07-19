@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────
+// Table : FileImport
+// Description : Représente un fichier Excel importé dans la base.
+// Permet de regrouper les employés importés dans un même lot
+// et d'éviter le mélange entre différents fichiers importés.
+// Contient le nom du fichier et la date d'importation.
+// ─────────────────────────────────────────────────────────
+model FileImport {
+  id         Int        @id @default(autoincrement())       // Identifiant unique de l'import
+  fileName   String                                      // Nom du fichier importé
+  importedAt DateTime  @default(now())                     // Date et heure de l'import
+  employees  Employee[]  @relation("FileImportEmployees")  // Liste des employés liés à cet import
+
+  @@map("file_imports")
+}
+
+// ─────────────────────────────────────────────────────────
+// Table : Employee
+// Description : Représente un employé enregistré dans la base,
+// associé à un import spécifique.
+// Contient les informations essentielles telles que le nom,
+// l'email, le poste, le salaire, et la date de création.
+// ─────────────────────────────────────────────────────────
+model Employee {
+  id           Int       @id @default(autoincrement())    // Identifiant unique de l'employé
+  nom          String                                      // Nom complet de l'employé
+  email        String                                      // Adresse email de l'employé
+  salaire      Float                                       // Salaire (nombre décimal)
+  poste        String                                      // Poste ou titre du salarié
+  createdAt    DateTime  @default(now())                   // Date et heure d'enregistrement
+
+  fileImportId Int                                          // Clé étrangère vers l'import
+  fileImport   FileImport @relation(fields: [fileImportId], references: [id], name: "FileImportEmployees")
+
+  @@map("employees")
+}
