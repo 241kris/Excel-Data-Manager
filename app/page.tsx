@@ -1,15 +1,13 @@
-'use client'
+ 'use client'
 
 import React, { useRef, useState } from 'react'
 import { FaFileExcel } from 'react-icons/fa'
 import UploadExcelButton, { UploadExcelButtonHandle } from './components/UploadExcelButton'
-import * as XLSX from 'xlsx'
 import { z } from 'zod'
 import { fileImportSchema, employeeSchema } from '@/schemas'
 import { useSaveFileImport } from '@/hooks/useSaveFileImport'
 import toast from 'react-hot-toast'
 import Breadcrumbs from './components/Breadcrumbs'
-
 
 type RawEmployee = {
   nom: string
@@ -34,97 +32,84 @@ export default function Home() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const uploadButtonRef = useRef<UploadExcelButtonHandle>(null)
 
-  const handleUpload = (file: File) => {
+  // ✅ Mise à jour ici : on accepte aussi jsonData
+  const handleUpload = (file: File, jsonData: RawEmployee[]) => {
     setFileName(file.name)
 
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const data = e.target?.result
-      if (!data) return
+    const loaded: EmployeeWithErrors[] = jsonData.map((row) => ({
+      current: {
+        nom: row.nom || '',
+        email: row.email || '',
+        poste: row.poste || '',
+        salaire: row.salaire || '',
+      },
+      original: {
+        nom: row.nom || '',
+        email: row.email || '',
+        poste: row.poste || '',
+        salaire: row.salaire || '',
+      },
+      errors: {},
+    }))
 
-      const workbook = XLSX.read(data, { type: 'binary' })
-      const sheetName = workbook.SheetNames[0]
-      const worksheet = workbook.Sheets[sheetName]
+    setEmployees(loaded)
 
-      const jsonData = XLSX.utils.sheet_to_json<RawEmployee>(worksheet, { defval: '' })
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
 
-      const loaded: EmployeeWithErrors[] = jsonData.map((row) => ({
-        current: {
-          nom: row.nom || '',
-          email: row.email || '',
-          poste: row.poste || '',
-          salaire: row.salaire || '',
-        },
-        original: {
-          nom: row.nom || '',
-          email: row.email || '',
-          poste: row.poste || '',
-          salaire: row.salaire || '',
-        },
-        errors: {},
-      }))
-
-      setEmployees(loaded)
-
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
+  const handleSubmit = () => {
+    const dataToValidate = employees.map((emp) => {
+      const salaireStr = emp.current.salaire.replace(/[^0-9]+/g, '')
+      const salaireInt = parseInt(salaireStr, 10)
+      return {
+        nom: emp.current.nom,
+        email: emp.current.email,
+        poste: emp.current.poste,
+        salaire: isNaN(salaireInt) ? 0 : salaireInt,
       }
+    })
+
+    const validation = fileImportSchema.safeParse({
+      fileName,
+      importedAt: new Date().toISOString(),
+      employees: dataToValidate,
+    })
+
+    if (!validation.success) {
+      const fieldErrors = validation.error.flatten().fieldErrors.employees
+
+      if (fieldErrors) {
+        setEmployees((prev) =>
+          prev.map((emp, idx) => {
+            const empErrors = fieldErrors[idx] as ZodFieldErrors | undefined
+
+            return {
+              ...emp,
+              errors: {
+                nom: empErrors?.nom?.[0] ?? '',
+                email: empErrors?.email?.[0] ?? '',
+                poste: empErrors?.poste?.[0] ?? '',
+                salaire: empErrors?.salaire?.[0] ?? '',
+              },
+            }
+          })
+        )
+      }
+
+      toast.error('Merci de corriger les erreurs dans le fichier Excel.')
+      return
     }
 
-    reader.readAsBinaryString(file)
+    mutation.mutate(validation.data, {
+      onSuccess: () => {
+        setEmployees([])
+        setFileName('')
+        toast.success('Import sauvegardé avec succès.')
+      },
+    })
   }
-
- const handleSubmit = () => {
-  const dataToValidate = employees.map((emp) => {
-    const salaireStr = emp.current.salaire.replace(/[^0-9]+/g, '')
-    const salaireInt = parseInt(salaireStr, 10)
-    return {
-      nom: emp.current.nom,
-      email: emp.current.email,
-      poste: emp.current.poste,
-      salaire: isNaN(salaireInt) ? 0 : salaireInt,
-    }
-  })
-
-  const validation = fileImportSchema.safeParse({
-    fileName,
-    importedAt: new Date().toISOString(),
-    employees: dataToValidate,
-  })
-
-  if (!validation.success) {
-    const fieldErrors = validation.error.flatten().fieldErrors.employees
-
-    if (fieldErrors) {
-      setEmployees((prev) =>
-        prev.map((emp, idx) => {
-          const empErrors = fieldErrors[idx] as ZodFieldErrors | undefined
-
-          return {
-            ...emp,
-            errors: {
-              nom: empErrors?.nom?.[0] ?? '',
-              email: empErrors?.email?.[0] ?? '',
-              poste: empErrors?.poste?.[0] ?? '',
-              salaire: empErrors?.salaire?.[0] ?? '',
-            },
-          }
-        })
-      )
-    }
-
-    toast.error('Merci de corriger les erreurs dans le fichier Excel.')
-    return
-  }
-
-  mutation.mutate(validation.data, {
-    onSuccess: () => {
-      
-      setEmployees([])
-      setFileName('')
-    },
-  })
-}
 
   const handleForget = () => {
     setEmployees([])
@@ -132,13 +117,11 @@ export default function Home() {
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
-    uploadButtonRef.current?.reset?.() // si tu as défini une méthode reset dans UploadExcelButton
+    uploadButtonRef.current?.reset?.()
     toast.success('Import réinitialisé.')
   }
 
   return (
-
-
     <main className="flex flex-col items-center justify-center h-screen px-4">
       <div>
         <Breadcrumbs />
@@ -154,11 +137,10 @@ export default function Home() {
       </div>
 
       {employees.length > 0 && (
-
         <div className="overflow-x-auto mt-14 w-full max-w-5xl">
-
           <h1 className="stat-desc text-base">
-            {employees.length} élément(s) -  <span className='text-green-600 font-semibold'>{fileName}</span>
+            {employees.length} élément(s) -{' '}
+            <span className="text-green-600 font-semibold">{fileName}</span>
           </h1>
 
           <div className="flex items-center gap-2 mt-2">
@@ -178,10 +160,9 @@ export default function Home() {
             >
               oublier
             </button>
-
           </div>
 
-          {/*table affichant les données du fichier*/}
+          {/* Table affichant les données du fichier */}
           <table className="table w-full text-xs">
             <thead>
               <tr>
@@ -202,7 +183,6 @@ export default function Home() {
               ))}
             </tbody>
           </table>
-
         </div>
       )}
     </main>
