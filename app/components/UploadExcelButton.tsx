@@ -2,23 +2,22 @@
 
 import React, {
   useRef,
-  useState,
   useImperativeHandle,
   forwardRef,
 } from 'react'
+import * as XLSX from 'xlsx'
 
 export type UploadExcelButtonHandle = {
   reset: () => void
 }
 
 type Props = {
-  onFileSelectAction: (file: File) => void
+  onFileSelectAction: (file: File, parsedData: any[]) => void
 }
 
 const UploadExcelButton = forwardRef<UploadExcelButtonHandle, Props>(
   ({ onFileSelectAction }, ref) => {
     const inputRef = useRef<HTMLInputElement>(null)
-    const [ ,setFileName ] = useState<string>('')
 
     const handleClick = () => {
       inputRef.current?.click()
@@ -26,15 +25,27 @@ const UploadExcelButton = forwardRef<UploadExcelButtonHandle, Props>(
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0]
-      if (file) {
-        setFileName(file.name)
-        onFileSelectAction(file)
+      if (!file) return
+
+      const reader = new FileReader()
+
+      reader.onload = (event) => {
+        const data = new Uint8Array(event.target?.result as ArrayBuffer)
+        const workbook = XLSX.read(data, { type: 'array' })
+
+        const sheetName = workbook.SheetNames[0]
+        const worksheet = workbook.Sheets[sheetName]
+
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' })
+
+        onFileSelectAction(file, jsonData)
       }
+
+      reader.readAsArrayBuffer(file)
     }
 
     useImperativeHandle(ref, () => ({
       reset: () => {
-        setFileName('')
         if (inputRef.current) {
           inputRef.current.value = ''
         }
@@ -62,8 +73,6 @@ const UploadExcelButton = forwardRef<UploadExcelButtonHandle, Props>(
             Formats acceptés : .xlsx
           </p>
         </div>
-
-
       </div>
     )
   }
