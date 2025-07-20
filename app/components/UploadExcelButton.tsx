@@ -11,8 +11,15 @@ export type UploadExcelButtonHandle = {
   reset: () => void
 }
 
+type RawEmployee = {
+  nom: string
+  email: string
+  poste: string
+  salaire: string
+}
+
 type Props = {
-  onFileSelectAction: (file: File, parsedData: any[]) => void
+  onFileSelectAction: (file: File, parsedData: RawEmployee[]) => void
 }
 
 const UploadExcelButton = forwardRef<UploadExcelButtonHandle, Props>(
@@ -30,15 +37,19 @@ const UploadExcelButton = forwardRef<UploadExcelButtonHandle, Props>(
       const reader = new FileReader()
 
       reader.onload = (event) => {
-        const data = new Uint8Array(event.target?.result as ArrayBuffer)
-        const workbook = XLSX.read(data, { type: 'array' })
+        try {
+          const data = new Uint8Array(event.target?.result as ArrayBuffer)
+          const workbook = XLSX.read(data, { type: 'array' })
 
-        const sheetName = workbook.SheetNames[0]
-        const worksheet = workbook.Sheets[sheetName]
+          const sheetName = workbook.SheetNames[0]
+          const worksheet = workbook.Sheets[sheetName]
 
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' })
+          const jsonData = XLSX.utils.sheet_to_json<RawEmployee>(worksheet, { defval: '' })
 
-        onFileSelectAction(file, jsonData)
+          onFileSelectAction(file, jsonData)
+        } catch (err) {
+          console.error('Erreur lors de la lecture du fichier Excel :', err)
+        }
       }
 
       reader.readAsArrayBuffer(file)
