@@ -1,4 +1,4 @@
- 'use client'
+'use client'
 
 import React, { useRef, useState } from 'react'
 import { FaFileExcel } from 'react-icons/fa'
@@ -32,7 +32,6 @@ export default function Home() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const uploadButtonRef = useRef<UploadExcelButtonHandle>(null)
 
-  // ✅ Mise à jour ici : on accepte aussi jsonData
   const handleUpload = (file: File, jsonData: RawEmployee[]) => {
     setFileName(file.name)
 
@@ -41,13 +40,13 @@ export default function Home() {
         nom: row.nom || '',
         email: row.email || '',
         poste: row.poste || '',
-        salaire: row.salaire || '',
+        salaire: String(row.salaire || ''), // <-- conversion explicite en string
       },
       original: {
         nom: row.nom || '',
         email: row.email || '',
         poste: row.poste || '',
-        salaire: row.salaire || '',
+        salaire: String(row.salaire || ''), // <-- conversion explicite en string
       },
       errors: {},
     }))
@@ -61,7 +60,8 @@ export default function Home() {
 
   const handleSubmit = () => {
     const dataToValidate = employees.map((emp) => {
-      const salaireStr = emp.current.salaire.replace(/[^0-9]+/g, '')
+      // Convertir en string avant d'appeler replace
+      const salaireStr = String(emp.current.salaire).replace(/[^0-9]+/g, '')
       const salaireInt = parseInt(salaireStr, 10)
       return {
         nom: emp.current.nom,
@@ -162,7 +162,6 @@ export default function Home() {
             </button>
           </div>
 
-          {/* Table affichant les données du fichier */}
           <table className="table w-full text-xs">
             <thead>
               <tr>
